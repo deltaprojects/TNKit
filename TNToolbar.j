@@ -84,6 +84,12 @@ var TNToolbarSelectedBgImage,
 
         [_imageViewSelection setBackgroundColor:[CPColor colorWithPatternImage:TNToolbarSelectedBgImage]];
 
+        [_toolbarView setPostsFrameChangedNotifications:YES];
+        [[CPNotificationCenter defaultCenter] addObserver:self
+              selector:@selector(toolbarViewFrameDidChange:)
+                  name:CPViewFrameDidChangeNotification
+                object:[self toolbarView]];
+                
         [self setDelegate:self];
     }
 
@@ -280,6 +286,27 @@ var TNToolbarSelectedBgImage,
     [self _reloadToolbarItems];
 }
 
+/*! callback for the _toolbarView observing the FrameDidChange event. Will reposition selectedImageView.
+    @param CPNotification
+*/
+- (void)toolbarViewFrameDidChange:(CPNotification)aNotification 
+{
+  if (_iconSelected && _selectedToolbarItem)
+      [self positionSelectedToolbarItem];
+}
+
+- (CPToolbarItemView)toolbarItemViewForToolbarItem:(CPToolbarItem)aToolbarItem
+{
+    var toolbarItemView = nil;
+    for (var i = 0; i < [[_toolbarView subviews] count]; i++)
+    {
+        toolbarItemView = [[_toolbarView subviews] objectAtIndex:i];
+
+        if ([toolbarItemView._toolbarItem itemIdentifier] === [aToolbarItem itemIdentifier])
+            break;
+    }
+    return toolbarItemView;
+}
 
 #pragma mark -
 #pragma mark Item selection
@@ -289,23 +316,16 @@ var TNToolbarSelectedBgImage,
 */
 - (void)selectToolbarItem:(CPToolbarItem)aToolbarItem
 {
-    var toolbarItemView;
-
-    for (var i = 0; i < [[_toolbarView subviews] count]; i++)
-    {
-        toolbarItemView = [[_toolbarView subviews] objectAtIndex:i];
-
-        if ([toolbarItemView._toolbarItem itemIdentifier] === [aToolbarItem itemIdentifier])
-            break;
-    }
-    var frame = [toolbarItemView convertRect:[toolbarItemView bounds] toView:_toolbarView],
+    var toolbarItemView = [self toolbarItemViewForToolbarItem:aToolbarItem],
         labelFrame = [aToolbarItem label] ? [[aToolbarItem label] sizeWithFont:[CPFont boldSystemFontOfSize:12]] : [aToolbarItem minSize];
+    
     _iconSelected = YES;
-
+    
     [_imageViewSelection setFrameSize:CGSizeMake(MAX(labelFrame.width + 4, 50.0), 60.0)];
-    [_imageViewSelection setFrameOrigin:CGPointMake(CGRectGetMinX(frame) + (CGRectGetWidth(frame) - CGRectGetWidth([_imageViewSelection frame])) / 2.0, 0.0)];
-
-    [_toolbarView addSubview:_imageViewSelection positioned:CPWindowBelow relativeTo:nil];
+    [self positionSelectedToolbarItem:toolbarItemView];
+    if([[_toolbarView subviews] indexOfObject:_imageViewSelection] == -1) {
+        [_toolbarView addSubview:_imageViewSelection positioned:CPWindowBelow relativeTo:nil];
+    }
 
     _selectedToolbarItem = aToolbarItem;
 }
@@ -319,6 +339,22 @@ var TNToolbarSelectedBgImage,
     [_imageViewSelection removeFromSuperview];
 }
 
+/*! reposition the selectedToolbarItem selectedImageView
+*/
+- (void)positionSelectedToolbarItem
+{
+    var toolbarItemView = [self toolbarItemViewForToolbarItem:_selectedToolbarItem];
+    [self positionSelectedToolbarItem:toolbarItemView];
+}
+/*! reposition the selectedToolbarItem selectedImageView
+    @param aToolbarItemView the toolbaritemview that the selectedImageView should be adjusted to
+*/
+- (void)positionSelectedToolbarItem:(CPToolbarItemView)aToolbarItemView
+{
+    var frame = [aToolbarItemView convertRect:[aToolbarItemView bounds] toView:_toolbarView];
+    [_imageViewSelection setFrameOrigin:CGPointMake(CGRectGetMinX(frame) + (CGRectGetWidth(frame) - CGRectGetWidth([_imageViewSelection frame])) / 2.0, 0.0)];
+    
+}
 /*! get the toolbar item with the given identifier
 */
 - (CPToolbarItem)itemWithIdentifier:(id)anIdentifier
